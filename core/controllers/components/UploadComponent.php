@@ -20,7 +20,8 @@
 
 /** This class handles the upload of files into the different assetstores */
 class UploadComponent extends AppComponent
-  {
+{
+
   /** Helper function to create the two-level hierarchy */
   private function _createAssetstoreDirectory($directorypath)
     {
@@ -118,9 +119,14 @@ class UploadComponent extends AppComponent
   public function createLinkItem($userDao, $name, $url, $parent = null, $sizebytes = 0, $checksum = ' ')
     {
     $itemModel = MidasLoader::loadModel('Item');
+    $feedModel = MidasLoader::loadModel('Feed');
     $folderModel = MidasLoader::loadModel('Folder');
+    $bitstreamModel = MidasLoader::loadModel('Bitstream');
     $assetstoreModel = MidasLoader::loadModel('Assetstore');
+    $feedpolicygroupModel = MidasLoader::loadModel('Feedpolicygroup');
     $itemRevisionModel = MidasLoader::loadModel('ItemRevision');
+    $feedpolicyuserModel = MidasLoader::loadModel('Feedpolicyuser');
+    $itempolicyuserModel = MidasLoader::loadModel('Itempolicyuser');
 
     if($userDao == null)
       {
@@ -146,13 +152,13 @@ class UploadComponent extends AppComponent
     $item->setPrivacyStatus(MIDAS_PRIVACY_PRIVATE); // Must set this flag private initially
     $itemModel->save($item, false);
 
-    //$feed = $feedModel->createFeed($userDao, MIDAS_FEED_CREATE_ITEM, $item);
+    $feed = $feedModel->createFeed($userDao, MIDAS_FEED_CREATE_ITEM, $item);
 
     $folderModel->addItem($parent, $item);
-    $itemModel->copyParentPolicies($item, $parent /*, $feed*/);
+    $itemModel->copyParentPolicies($item, $parent, $feed);
 
-    //$feedpolicyuserModel->createPolicy($userDao, $feed, MIDAS_POLICY_ADMIN);
-    //$itempolicyuserModel->createPolicy($userDao, $item, MIDAS_POLICY_ADMIN);
+    $feedpolicyuserModel->createPolicy($userDao, $feed, MIDAS_POLICY_ADMIN);
+    $itempolicyuserModel->createPolicy($userDao, $item, MIDAS_POLICY_ADMIN);
 
     Zend_Loader::loadClass('ItemRevisionDao', BASE_PATH . '/core/models/dao');
     $itemRevisionDao = new ItemRevisionDao;
@@ -194,9 +200,13 @@ class UploadComponent extends AppComponent
   public function createUploadedItem($userDao, $name, $path, $parent = null, $license = null, $filemd5 = '', $copy = false, $revOnCollision = false)
     {
     $itemModel = MidasLoader::loadModel('Item');
+    $feedModel = MidasLoader::loadModel('Feed');
     $folderModel = MidasLoader::loadModel('Folder');
+    $bitstreamModel = MidasLoader::loadModel('Bitstream');
     $assetstoreModel = MidasLoader::loadModel('Assetstore');
+    $feedpolicygroupModel = MidasLoader::loadModel('Feedpolicygroup');
     $itemRevisionModel = MidasLoader::loadModel('ItemRevision');
+    $feedpolicyuserModel = MidasLoader::loadModel('Feedpolicyuser');
     $itempolicyuserModel = MidasLoader::loadModel('Itempolicyuser');
 
     if($userDao == null)
@@ -235,11 +245,11 @@ class UploadComponent extends AppComponent
 
       $folderModel->addItem($parent, $item);
 
-      //$feed = $feedModel->createFeed($userDao, MIDAS_FEED_CREATE_ITEM, $item);
+      $feed = $feedModel->createFeed($userDao, MIDAS_FEED_CREATE_ITEM, $item);
 
-      $itemModel->copyParentPolicies($item, $parent /*, $feed*/);
+      $itemModel->copyParentPolicies($item, $parent, $feed);
       $itempolicyuserModel->createPolicy($userDao, $item, MIDAS_POLICY_ADMIN);
-      //$feedpolicyuserModel->createPolicy($userDao, $feed, MIDAS_POLICY_ADMIN);
+      $feedpolicyuserModel->createPolicy($userDao, $feed, MIDAS_POLICY_ADMIN);
       $this->getLogger()->debug('Item uploaded ('.$item->getName().', id='.$item->getKey().')');
       }
 
@@ -295,9 +305,12 @@ class UploadComponent extends AppComponent
       }
 
     $itemModel = MidasLoader::loadModel('Item');
+    $feedModel = MidasLoader::loadModel('Feed');
     $bitstreamModel = MidasLoader::loadModel('Bitstream');
     $assetstoreModel = MidasLoader::loadModel('Assetstore');
+    $feedpolicygroupModel = MidasLoader::loadModel('Feedpolicygroup');
     $itemRevisionModel = MidasLoader::loadModel('ItemRevision');
+    $feedpolicyuserModel = MidasLoader::loadModel('Feedpolicyuser');
 
     $item = $itemModel->load($itemId);
 
@@ -334,6 +347,24 @@ class UploadComponent extends AppComponent
       $itemRevisionDao->setDate(date("Y-m-d H:i:s"));
       $itemRevisionDao->setLicenseId($license);
       $itemModel->addRevision($item, $itemRevisionDao);
+
+      $feed = $feedModel->createFeed($userDao, MIDAS_FEED_CREATE_REVISION, $itemRevisionDao);
+
+      $groupPolicies = $item->getItempolicygroup();
+      $userPolicies = $item->getItempolicyuser();
+
+      //copy policies
+      if($feed != null && $feed instanceof FeedDao)
+        {
+        foreach($groupPolicies as $key => $policy)
+          {
+          $feedpolicygroupModel->createPolicy($policy->getGroup(), $feed, $policy->getPolicy());
+          }
+        foreach($userPolicies as $key => $policy)
+          {
+          $feedpolicyuserModel->createPolicy($policy->getUser(), $feed, $policy->getPolicy());
+          }
+        }
       }
     else
       {
