@@ -408,23 +408,23 @@ class ApisystemComponent extends AppComponent
                     MIDAS_POLICY_READ
                 )
                 ) {
-                    $create_additional_revision = isset($args['create_additional_revision']) ? $args['create_additional_revision'] : false;
+                    $createAdditionalRevision = isset($args['create_additional_revision']) ? $args['create_additional_revision'] : false;
                     $revision = $itemModel->getLastRevision($item);
 
-                    // do not create an additional revision if last revision has one bitstream and checkum matches
-                    if ($create_additional_revision && $revision) {
-                      $bitstreams = $revision->getBitstreams();
-                      if (count($bitstreams) == 1 && $args['checksum'] == $bitstreams[0]->getChecksum()) {
-                        return array('token' => '');
+                    // Do not create an additional revision if last revision has one bitstream and checksum matches.
+                    if ($createAdditionalRevision && $revision) {
+                        $bitstreams = $revision->getBitstreams();
+                        if (count($bitstreams) === 1 && $args['checksum'] == $bitstreams[0]->getChecksum()) {
+                            return array('token' => '');
                         }
-                      }
+                    }
 
-                    if ($revision === false || $create_additional_revision) {
-                        // Create new revision if none exists yet or if the user explicitly asked for creating a new revision when
+                    if ($revision === false || $createAdditionalRevision) {
+                        // Create a new revision if none exists yet or if the user explicitly asks to create a new revision when
                         // a bitstream with the same checksum was found.
                         Zend_Loader::loadClass('ItemRevisionDao', BASE_PATH.'/core/models/dao');
                         $revision = new ItemRevisionDao();
-                        if($create_additional_revision === false) {
+                        if ($createAdditionalRevision === false) {
                             $revision->setChanges('Initial revision');
                         }
                         $revision->setUser_id($userDao->getKey());
