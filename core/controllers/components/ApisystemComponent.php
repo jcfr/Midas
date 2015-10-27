@@ -411,6 +411,14 @@ class ApisystemComponent extends AppComponent
                     $create_additional_revision = isset($args['create_additional_revision']) ? $args['create_additional_revision'] : false;
                     $revision = $itemModel->getLastRevision($item);
 
+                    // do not create an additional revision if last revision has one bitstream and checkum matches
+                    if ($create_additional_revision && $revision) {
+                      $bitstreams = $revision->getBitstreams();
+                      if (count($bitstreams) == 1 && $args['checksum'] == $bitstreams[0]->getChecksum()) {
+                        return array('token' => '');
+                        }
+                      }
+
                     if ($revision === false || $create_additional_revision) {
                         // Create new revision if none exists yet or if the user explicitly asked for creating a new revision when
                         // a bitstream with the same checksum was found.
