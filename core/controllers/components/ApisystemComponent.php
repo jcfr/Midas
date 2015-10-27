@@ -324,6 +324,10 @@ class ApisystemComponent extends AppComponent
      * When passing the <b>folderid</b> param, the name of the newly created item,
      * if not supplied, the item will have the same name as <b>filename</b>.
      * @param checksum (Optional) The md5 checksum of the file to be uploaded.
+     * @param create_additional_revision (Optional) When a <b>checksum</b> is passed and
+     * the server already has the file, by default a reference to the existing
+     * bitstream will be added to the latest revision. By setting
+     * <b>create_additional_revision</b> to true, a new revision will be created.
      * @return An upload token that can be used to upload a file.
      *            If <b>folderid</b> is passed instead of <b>itemid</b>, a new item will be created
      *            in that folder, but the id of the newly created item will not be
@@ -404,13 +408,17 @@ class ApisystemComponent extends AppComponent
                     MIDAS_POLICY_READ
                 )
                 ) {
+                    $create_additional_revision = isset($args['create_additional_revision']) ? $args['create_additional_revision'] : false;
                     $revision = $itemModel->getLastRevision($item);
 
-                    if ($revision === false) {
-                        // Create new revision if none exists yet
+                    if ($revision === false || $create_additional_revision) {
+                        // Create new revision if none exists yet or if the user explicitly asked for creating a new revision when
+                        // a bitstream with the same checksum was found.
                         Zend_Loader::loadClass('ItemRevisionDao', BASE_PATH.'/core/models/dao');
                         $revision = new ItemRevisionDao();
-                        $revision->setChanges('Initial revision');
+                        if($create_additional_revision === false) {
+                            $revision->setChanges('Initial revision');
+                        }
                         $revision->setUser_id($userDao->getKey());
                         $revision->setDate(date('Y-m-d H:i:s'));
                         $revision->setLicenseId(null);
